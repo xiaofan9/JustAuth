@@ -1,17 +1,19 @@
 package me.zhyd.oauth.request;
 
 import com.alibaba.fastjson.JSONObject;
-import com.xkcoding.http.HttpUtil;
 import me.zhyd.oauth.cache.AuthStateCache;
 import me.zhyd.oauth.config.AuthConfig;
 import me.zhyd.oauth.config.AuthDefaultSource;
 import me.zhyd.oauth.enums.AuthResponseStatus;
 import me.zhyd.oauth.enums.AuthUserGender;
+import me.zhyd.oauth.enums.scope.AuthBaiduScope;
 import me.zhyd.oauth.exception.AuthException;
 import me.zhyd.oauth.model.AuthCallback;
 import me.zhyd.oauth.model.AuthResponse;
 import me.zhyd.oauth.model.AuthToken;
 import me.zhyd.oauth.model.AuthUser;
+import me.zhyd.oauth.utils.AuthScopeUtils;
+import me.zhyd.oauth.utils.HttpUtils;
 import me.zhyd.oauth.utils.StringUtils;
 import me.zhyd.oauth.utils.UrlBuilder;
 
@@ -37,13 +39,22 @@ public class AuthBaiduRequest extends AuthDefaultRequest {
         return getAuthToken(response);
     }
 
+    /**
+     * https://openapi.baidu.com/rest/2.0/passport/users/getInfo?access_token=121.c86e87cc0828cc1dabb8faee540531d4.YsUIAWvYbgqVni1VhkgKgyLh8nEyELbDOEZs_OA.OgDgmA
+     * https://openapi.baidu.com/rest/2.0/passport/users/getInfo?access_token=121.2907d9facf9fb97adf7287fa75496eda.Y3NSjR3-3HKt1RgT0HEl7GgxRXT5gOOVdngXezY.OcC_7g
+     * 新旧应用返回的用户信息不一致
+     *
+     * @param authToken token信息
+     * @return AuthUser
+     */
     @Override
     protected AuthUser getUserInfo(AuthToken authToken) {
         String userInfo = doGetUserInfo(authToken);
         JSONObject object = JSONObject.parseObject(userInfo);
         this.checkResponse(object);
         return AuthUser.builder()
-            .uuid(object.getString("userid"))
+            .rawUserInfo(object)
+            .uuid(object.containsKey("userid") ? object.getString("userid") : object.getString("openid"))
             .username(object.getString("username"))
             .nickname(object.getString("username"))
             .avatar(getAvatar(object))
@@ -77,7 +88,7 @@ public class AuthBaiduRequest extends AuthDefaultRequest {
             .queryParam("client_id", this.config.getClientId())
             .queryParam("client_secret", this.config.getClientSecret())
             .build();
-        String response = HttpUtil.get(refreshUrl);
+        String response = new HttpUtils(config.getHttpConfig()).get(refreshUrl);
         return AuthResponse.builder()
             .code(AuthResponseStatus.SUCCESS.getCode())
             .data(this.getAuthToken(response))
@@ -93,12 +104,9 @@ public class AuthBaiduRequest extends AuthDefaultRequest {
      */
     @Override
     public String authorize(String state) {
-        return UrlBuilder.fromBaseUrl(source.authorize())
-            .queryParam("response_type", "code")
-            .queryParam("client_id", config.getClientId())
-            .queryParam("redirect_uri", config.getRedirectUri())
+        return UrlBuilder.fromBaseUrl(super.authorize(state))
             .queryParam("display", "popup")
-            .queryParam("state", getRealState(state))
+            .queryParam("scope", this.getScopes(" ", true, AuthScopeUtils.getDefaultScopes(AuthBaiduScope.values())))
             .build();
     }
 

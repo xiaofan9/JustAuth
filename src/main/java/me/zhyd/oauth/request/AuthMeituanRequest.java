@@ -1,7 +1,6 @@
 package me.zhyd.oauth.request;
 
 import com.alibaba.fastjson.JSONObject;
-import com.xkcoding.http.HttpUtil;
 import me.zhyd.oauth.cache.AuthStateCache;
 import me.zhyd.oauth.config.AuthConfig;
 import me.zhyd.oauth.config.AuthDefaultSource;
@@ -12,6 +11,7 @@ import me.zhyd.oauth.model.AuthCallback;
 import me.zhyd.oauth.model.AuthResponse;
 import me.zhyd.oauth.model.AuthToken;
 import me.zhyd.oauth.model.AuthUser;
+import me.zhyd.oauth.utils.HttpUtils;
 import me.zhyd.oauth.utils.UrlBuilder;
 
 import java.util.HashMap;
@@ -41,7 +41,7 @@ public class AuthMeituanRequest extends AuthDefaultRequest {
         form.put("code", authCallback.getCode());
         form.put("grant_type", "authorization_code");
 
-        String response = HttpUtil.post(source.accessToken(), form, false);
+        String response = new HttpUtils(config.getHttpConfig()).post(source.accessToken(), form, false);
         JSONObject object = JSONObject.parseObject(response);
 
         this.checkResponse(object);
@@ -60,12 +60,13 @@ public class AuthMeituanRequest extends AuthDefaultRequest {
         form.put("secret", config.getClientSecret());
         form.put("access_token", authToken.getAccessToken());
 
-        String response = HttpUtil.post(source.userInfo(), form, false);
+        String response = new HttpUtils(config.getHttpConfig()).post(source.userInfo(), form, false);
         JSONObject object = JSONObject.parseObject(response);
 
         this.checkResponse(object);
 
         return AuthUser.builder()
+            .rawUserInfo(object)
             .uuid(object.getString("openid"))
             .username(object.getString("nickname"))
             .nickname(object.getString("nickname"))
@@ -84,7 +85,7 @@ public class AuthMeituanRequest extends AuthDefaultRequest {
         form.put("refresh_token", oldToken.getRefreshToken());
         form.put("grant_type", "refresh_token");
 
-        String response = HttpUtil.post(source.refresh(), form, false);
+        String response = new HttpUtils(config.getHttpConfig()).post(source.refresh(), form, false);
         JSONObject object = JSONObject.parseObject(response);
 
         this.checkResponse(object);
@@ -107,11 +108,7 @@ public class AuthMeituanRequest extends AuthDefaultRequest {
 
     @Override
     public String authorize(String state) {
-        return UrlBuilder.fromBaseUrl(source.authorize())
-            .queryParam("response_type", "code")
-            .queryParam("app_id", config.getClientId())
-            .queryParam("redirect_uri", config.getRedirectUri())
-            .queryParam("state", getRealState(state))
+        return UrlBuilder.fromBaseUrl(super.authorize(state))
             .queryParam("scope", "")
             .build();
     }

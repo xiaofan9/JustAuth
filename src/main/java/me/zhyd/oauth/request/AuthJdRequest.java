@@ -1,18 +1,20 @@
 package me.zhyd.oauth.request;
 
 import com.alibaba.fastjson.JSONObject;
-import com.xkcoding.http.HttpUtil;
 import me.zhyd.oauth.cache.AuthStateCache;
 import me.zhyd.oauth.config.AuthConfig;
 import me.zhyd.oauth.config.AuthDefaultSource;
 import me.zhyd.oauth.enums.AuthResponseStatus;
 import me.zhyd.oauth.enums.AuthUserGender;
+import me.zhyd.oauth.enums.scope.AuthJdScope;
 import me.zhyd.oauth.exception.AuthException;
 import me.zhyd.oauth.model.AuthCallback;
 import me.zhyd.oauth.model.AuthResponse;
 import me.zhyd.oauth.model.AuthToken;
 import me.zhyd.oauth.model.AuthUser;
+import me.zhyd.oauth.utils.AuthScopeUtils;
 import me.zhyd.oauth.utils.GlobalAuthUtils;
+import me.zhyd.oauth.utils.HttpUtils;
 import me.zhyd.oauth.utils.UrlBuilder;
 
 import java.time.LocalDateTime;
@@ -44,7 +46,7 @@ public class AuthJdRequest extends AuthDefaultRequest {
         params.put("app_secret", config.getClientSecret());
         params.put("grant_type", "authorization_code");
         params.put("code", authCallback.getCode());
-        String response = HttpUtil.post(source.accessToken(), params, false);
+        String response = new HttpUtils(config.getHttpConfig()).post(source.accessToken(), params, false);
         JSONObject object = JSONObject.parseObject(response);
 
         this.checkResponse(object);
@@ -68,7 +70,7 @@ public class AuthJdRequest extends AuthDefaultRequest {
             .queryParam("timestamp", LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
             .queryParam("v", "2.0");
         urlBuilder.queryParam("sign", GlobalAuthUtils.generateJdSignature(config.getClientSecret(), urlBuilder.getReadOnlyParams()));
-        String response = HttpUtil.post(urlBuilder.build(true));
+        String response = new HttpUtils(config.getHttpConfig()).post(urlBuilder.build(true));
         JSONObject object = JSONObject.parseObject(response);
 
         this.checkResponse(object);
@@ -76,6 +78,7 @@ public class AuthJdRequest extends AuthDefaultRequest {
         JSONObject data = this.getUserDataJsonObject(object);
 
         return AuthUser.builder()
+            .rawUserInfo(data)
             .uuid(authToken.getOpenId())
             .username(data.getString("nickName"))
             .nickname(data.getString("nickName"))
@@ -106,7 +109,7 @@ public class AuthJdRequest extends AuthDefaultRequest {
         params.put("app_secret", config.getClientSecret());
         params.put("grant_type", "refresh_token");
         params.put("refresh_token", oldToken.getRefreshToken());
-        String response = HttpUtil.post(source.refresh(), params, false);
+        String response = new HttpUtils(config.getHttpConfig()).post(source.refresh(), params, false);
         JSONObject object = JSONObject.parseObject(response);
 
         this.checkResponse(object);
@@ -135,7 +138,7 @@ public class AuthJdRequest extends AuthDefaultRequest {
             .queryParam("app_key", config.getClientId())
             .queryParam("response_type", "code")
             .queryParam("redirect_uri", config.getRedirectUri())
-            .queryParam("scope", "snsapi_base")
+            .queryParam("scope", this.getScopes(" ", true, AuthScopeUtils.getDefaultScopes(AuthJdScope.values())))
             .queryParam("state", getRealState(state))
             .build();
     }

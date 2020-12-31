@@ -1,14 +1,16 @@
 package me.zhyd.oauth.request;
 
 import com.alibaba.fastjson.JSONObject;
-import com.xkcoding.http.HttpUtil;
 import me.zhyd.oauth.cache.AuthStateCache;
 import me.zhyd.oauth.config.AuthConfig;
 import me.zhyd.oauth.enums.AuthUserGender;
+import me.zhyd.oauth.enums.scope.AuthPinterestScope;
 import me.zhyd.oauth.exception.AuthException;
 import me.zhyd.oauth.model.AuthCallback;
 import me.zhyd.oauth.model.AuthToken;
 import me.zhyd.oauth.model.AuthUser;
+import me.zhyd.oauth.utils.AuthScopeUtils;
+import me.zhyd.oauth.utils.HttpUtils;
 import me.zhyd.oauth.utils.UrlBuilder;
 
 import java.util.Objects;
@@ -48,11 +50,12 @@ public class AuthPinterestRequest extends AuthDefaultRequest {
     protected AuthUser getUserInfo(AuthToken authToken) {
         String userinfoUrl = userInfoUrl(authToken);
         // TODO: 是否需要 .setFollowRedirects(true)
-        String response = HttpUtil.get(userinfoUrl);
+        String response = new HttpUtils(config.getHttpConfig()).get(userinfoUrl);
         JSONObject object = JSONObject.parseObject(response);
         this.checkResponse(object);
         JSONObject userObj = object.getJSONObject("data");
         return AuthUser.builder()
+            .rawUserInfo(userObj)
             .uuid(userObj.getString("id"))
             .avatar(getAvatarUrl(userObj))
             .username(userObj.getString("username"))
@@ -82,12 +85,8 @@ public class AuthPinterestRequest extends AuthDefaultRequest {
      */
     @Override
     public String authorize(String state) {
-        return UrlBuilder.fromBaseUrl(source.authorize())
-            .queryParam("response_type", "code")
-            .queryParam("client_id", config.getClientId())
-            .queryParam("redirect_uri", config.getRedirectUri())
-            .queryParam("scope", "read_public")
-            .queryParam("state", getRealState(state))
+        return UrlBuilder.fromBaseUrl(super.authorize(state))
+            .queryParam("scope", this.getScopes(",", false, AuthScopeUtils.getDefaultScopes(AuthPinterestScope.values())))
             .build();
     }
 

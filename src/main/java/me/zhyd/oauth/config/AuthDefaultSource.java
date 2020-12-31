@@ -140,41 +140,25 @@ public enum AuthDefaultSource implements AuthSource {
         }
     },
     /**
-     * Coding
+     * Coding，
+     *
+     * 参考 https://help.coding.net/docs/project/open/oauth.html#%E7%94%A8%E6%88%B7%E6%8E%88%E6%9D%83 中的说明，
+     * 新版的 coding API 地址需要传入用户团队名，这儿使用动态参数，方便在 request 中使用
      */
     CODING {
         @Override
         public String authorize() {
-            return "https://coding.net/oauth_authorize.html";
+            return "https://%s.coding.net/oauth_authorize.html";
         }
 
         @Override
         public String accessToken() {
-            return "https://coding.net/api/oauth/access_token";
+            return "https://%s.coding.net/api/oauth/access_token";
         }
 
         @Override
         public String userInfo() {
-            return "https://coding.net/api/account/current_user";
-        }
-    },
-    /**
-     * 腾讯云开发者平台（coding升级后就变成腾讯云开发者平台了）
-     */
-    TENCENT_CLOUD {
-        @Override
-        public String authorize() {
-            return "https://dev.tencent.com/oauth_authorize.html";
-        }
-
-        @Override
-        public String accessToken() {
-            return "https://dev.tencent.com/api/oauth/access_token";
-        }
-
-        @Override
-        public String userInfo() {
-            return "https://dev.tencent.com/api/account/current_user";
+            return "https://%s.coding.net/api/account/current_user";
         }
     },
     /**
@@ -765,7 +749,7 @@ public enum AuthDefaultSource implements AuthSource {
 
         @Override
         public String accessToken() {
-                return "https://open-oauth.jd.com/oauth2/access_token";
+            return "https://open-oauth.jd.com/oauth2/access_token";
         }
 
         @Override
@@ -777,5 +761,31 @@ public enum AuthDefaultSource implements AuthSource {
         public String refresh() {
             return "https://open-oauth.jd.com/oauth2/refresh_token";
         }
+    },
+
+    /**
+     * 阿里云
+     */
+    ALIYUN {
+        @Override
+        public String authorize() {
+            return "https://signin.aliyun.com/oauth2/v1/auth";
+        }
+
+        @Override
+        public String accessToken() {
+            return "https://oauth.aliyun.com/v1/token";
+        }
+
+        @Override
+        public String userInfo() {
+            return "https://oauth.aliyun.com/v1/userinfo";
+        }
+
+        @Override
+        public String refresh() {
+            return "https://oauth.aliyun.com/v1/token";
+        }
     }
+
 }

@@ -1,19 +1,21 @@
 package me.zhyd.oauth.request;
 
 import com.alibaba.fastjson.JSONObject;
-import com.xkcoding.http.HttpUtil;
 import com.xkcoding.http.constants.Constants;
 import me.zhyd.oauth.cache.AuthStateCache;
 import me.zhyd.oauth.config.AuthConfig;
 import me.zhyd.oauth.config.AuthDefaultSource;
 import me.zhyd.oauth.enums.AuthResponseStatus;
 import me.zhyd.oauth.enums.AuthUserGender;
+import me.zhyd.oauth.enums.scope.AuthMiScope;
 import me.zhyd.oauth.exception.AuthException;
 import me.zhyd.oauth.log.Log;
 import me.zhyd.oauth.model.AuthCallback;
 import me.zhyd.oauth.model.AuthResponse;
 import me.zhyd.oauth.model.AuthToken;
 import me.zhyd.oauth.model.AuthUser;
+import me.zhyd.oauth.utils.AuthScopeUtils;
+import me.zhyd.oauth.utils.HttpUtils;
 import me.zhyd.oauth.utils.UrlBuilder;
 
 import java.text.MessageFormat;
@@ -41,7 +43,7 @@ public class AuthMiRequest extends AuthDefaultRequest {
     }
 
     private AuthToken getToken(String accessTokenUrl) {
-        String response = HttpUtil.get(accessTokenUrl);
+        String response = new HttpUtils(config.getHttpConfig()).get(accessTokenUrl);
         String jsonStr = response.replace(PREFIX, Constants.EMPTY);
         JSONObject accessTokenObject = JSONObject.parseObject(jsonStr);
 
@@ -71,14 +73,15 @@ public class AuthMiRequest extends AuthDefaultRequest {
             throw new AuthException(userProfile.getString("description"));
         }
 
-        JSONObject user = userProfile.getJSONObject("data");
+        JSONObject object = userProfile.getJSONObject("data");
 
         AuthUser authUser = AuthUser.builder()
+            .rawUserInfo(object)
             .uuid(authToken.getOpenId())
-            .username(user.getString("miliaoNick"))
-            .nickname(user.getString("miliaoNick"))
-            .avatar(user.getString("miliaoIcon"))
-            .email(user.getString("mail"))
+            .username(object.getString("miliaoNick"))
+            .nickname(object.getString("miliaoNick"))
+            .avatar(object.getString("miliaoIcon"))
+            .email(object.getString("mail"))
             .gender(AuthUserGender.UNKNOWN)
             .token(authToken)
             .source(source.toString())
@@ -88,7 +91,7 @@ public class AuthMiRequest extends AuthDefaultRequest {
         String emailPhoneUrl = MessageFormat.format("{0}?clientId={1}&token={2}", "https://open.account.xiaomi.com/user/phoneAndEmail", config
             .getClientId(), authToken.getAccessToken());
 
-        String emailResponse = HttpUtil.get(emailPhoneUrl);
+        String emailResponse = new HttpUtils(config.getHttpConfig()).get(emailPhoneUrl);
         JSONObject userEmailPhone = JSONObject.parseObject(emailResponse);
         if (!"error".equalsIgnoreCase(userEmailPhone.getString("result"))) {
             JSONObject emailPhone = userEmailPhone.getJSONObject("data");
@@ -123,13 +126,9 @@ public class AuthMiRequest extends AuthDefaultRequest {
      */
     @Override
     public String authorize(String state) {
-        return UrlBuilder.fromBaseUrl(source.authorize())
-            .queryParam("response_type", "code")
-            .queryParam("client_id", config.getClientId())
-            .queryParam("redirect_uri", config.getRedirectUri())
-            .queryParam("scope", "user/profile%20user/openIdV2%20user/phoneAndEmail")
+        return UrlBuilder.fromBaseUrl(super.authorize(state))
             .queryParam("skip_confirm", "false")
-            .queryParam("state", getRealState(state))
+            .queryParam("scope", this.getScopes(" ", true, AuthScopeUtils.getDefaultScopes(AuthMiScope.values())))
             .build();
     }
 

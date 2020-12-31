@@ -1,7 +1,7 @@
 package me.zhyd.oauth.request;
 
 import com.alibaba.fastjson.JSONObject;
-import com.xkcoding.http.HttpUtil;
+import me.zhyd.oauth.utils.HttpUtils;
 import me.zhyd.oauth.cache.AuthStateCache;
 import me.zhyd.oauth.config.AuthConfig;
 import me.zhyd.oauth.config.AuthDefaultSource;
@@ -41,15 +41,16 @@ public class AuthDouyinRequest extends AuthDefaultRequest {
         String response = doGetUserInfo(authToken);
         JSONObject userInfoObject = JSONObject.parseObject(response);
         this.checkResponse(userInfoObject);
-        JSONObject dataObj = userInfoObject.getJSONObject("data");
+        JSONObject object = userInfoObject.getJSONObject("data");
         return AuthUser.builder()
-            .uuid(dataObj.getString("union_id"))
-            .username(dataObj.getString("nickname"))
-            .nickname(dataObj.getString("nickname"))
-            .avatar(dataObj.getString("avatar"))
-            .remark(dataObj.getString("description"))
-            .gender(AuthUserGender.getRealGender(dataObj.getString("gender")))
-            .location(String.format("%s %s %s", dataObj.getString("country"), dataObj.getString("province"), dataObj.getString("city")))
+            .rawUserInfo(object)
+            .uuid(object.getString("union_id"))
+            .username(object.getString("nickname"))
+            .nickname(object.getString("nickname"))
+            .avatar(object.getString("avatar"))
+            .remark(object.getString("description"))
+            .gender(AuthUserGender.getRealGender(object.getString("gender")))
+            .location(String.format("%s %s %s", object.getString("country"), object.getString("province"), object.getString("city")))
             .token(authToken)
             .source(source.toString())
             .build();
@@ -84,7 +85,7 @@ public class AuthDouyinRequest extends AuthDefaultRequest {
      * @return token对象
      */
     private AuthToken getToken(String accessTokenUrl) {
-        String response = HttpUtil.post(accessTokenUrl);
+        String response = new HttpUtils(config.getHttpConfig()).post(accessTokenUrl);
         JSONObject object = JSONObject.parseObject(response);
         this.checkResponse(object);
         JSONObject dataObj = object.getJSONObject("data");

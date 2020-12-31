@@ -2,7 +2,6 @@ package me.zhyd.oauth.request;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
-import com.xkcoding.http.HttpUtil;
 import com.xkcoding.http.support.HttpHeader;
 import me.zhyd.oauth.config.AuthConfig;
 import me.zhyd.oauth.config.AuthDefaultSource;
@@ -13,6 +12,7 @@ import me.zhyd.oauth.model.AuthResponse;
 import me.zhyd.oauth.model.AuthToken;
 import me.zhyd.oauth.model.AuthUser;
 import me.zhyd.oauth.utils.GlobalAuthUtils;
+import me.zhyd.oauth.utils.HttpUtils;
 import me.zhyd.oauth.utils.UrlBuilder;
 
 /**
@@ -36,7 +36,7 @@ public class AuthFeishuRequest extends AuthDefaultRequest {
         requestObject.put("app_secret", config.getClientSecret());
         requestObject.put("grant_type", "authorization_code");
         requestObject.put("code", authCallback.getCode());
-        String response = HttpUtil.post(source.accessToken(), requestObject.toJSONString(), new HttpHeader()
+        String response = new HttpUtils(config.getHttpConfig()).post(source.accessToken(), requestObject.toJSONString(), new HttpHeader()
             .add("Content-Type", "application/json"));
         JSONObject jsonObject = JSON.parseObject(response);
         this.checkResponse(jsonObject);
@@ -53,14 +53,15 @@ public class AuthFeishuRequest extends AuthDefaultRequest {
     @Override
     protected AuthUser getUserInfo(AuthToken authToken) {
         String accessToken = authToken.getAccessToken();
-        String response = HttpUtil.get(source.userInfo(), null, new HttpHeader()
+        String response = new HttpUtils(config.getHttpConfig()).get(source.userInfo(), null, new HttpHeader()
             .add("Content-Type", "application/json")
             .add("Authorization", "Bearer " + accessToken), false);
-        JSONObject jsonObject = JSON.parseObject(response);
+        JSONObject object = JSON.parseObject(response);
         return AuthUser.builder()
-            .avatar(jsonObject.getString("AvatarUrl"))
-            .username(jsonObject.getString("Mobile"))
-            .email(jsonObject.getString("Email"))
+            .rawUserInfo(object)
+            .avatar(object.getString("AvatarUrl"))
+            .username(object.getString("Mobile"))
+            .email(object.getString("Email"))
             .nickname("Name")
             .build();
     }
@@ -72,7 +73,7 @@ public class AuthFeishuRequest extends AuthDefaultRequest {
         requestObject.put("app_secret", config.getClientSecret());
         requestObject.put("grant_type", "refresh_token");
         requestObject.put("refresh_token", authToken.getRefreshToken());
-        String response = HttpUtil.post(source.refresh(), requestObject.toJSONString(), new HttpHeader()
+        String response = new HttpUtils(config.getHttpConfig()).post(source.refresh(), requestObject.toJSONString(), new HttpHeader()
             .add("Content-Type", "application/json"));
         JSONObject jsonObject = JSON.parseObject(response);
         this.checkResponse(jsonObject);

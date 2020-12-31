@@ -1,16 +1,18 @@
 package me.zhyd.oauth.request;
 
 import com.alibaba.fastjson.JSONObject;
-import com.xkcoding.http.HttpUtil;
 import me.zhyd.oauth.cache.AuthStateCache;
 import me.zhyd.oauth.config.AuthConfig;
 import me.zhyd.oauth.config.AuthDefaultSource;
 import me.zhyd.oauth.enums.AuthUserGender;
+import me.zhyd.oauth.enums.scope.AuthHuaweiScope;
 import me.zhyd.oauth.exception.AuthException;
 import me.zhyd.oauth.model.AuthCallback;
 import me.zhyd.oauth.model.AuthResponse;
 import me.zhyd.oauth.model.AuthToken;
 import me.zhyd.oauth.model.AuthUser;
+import me.zhyd.oauth.utils.AuthScopeUtils;
+import me.zhyd.oauth.utils.HttpUtils;
 import me.zhyd.oauth.utils.UrlBuilder;
 
 import java.util.HashMap;
@@ -52,7 +54,7 @@ public class AuthHuaweiRequest extends AuthDefaultRequest {
         form.put("client_secret", config.getClientSecret());
         form.put("redirect_uri", config.getRedirectUri());
 
-        String response = HttpUtil.post(source.accessToken(), form, false);
+        String response = new HttpUtils(config.getHttpConfig()).post(source.accessToken(), form, false);
         return getAuthToken(response);
     }
 
@@ -71,7 +73,7 @@ public class AuthHuaweiRequest extends AuthDefaultRequest {
         form.put("nsp_fmt", "JS");
         form.put("nsp_svc", "OpenUP.User.getInfo");
 
-        String response = HttpUtil.post(source.userInfo(), form, false);
+        String response = new HttpUtils(config.getHttpConfig()).post(source.userInfo(), form, false);
         JSONObject object = JSONObject.parseObject(response);
 
         this.checkResponse(object);
@@ -79,6 +81,7 @@ public class AuthHuaweiRequest extends AuthDefaultRequest {
         AuthUserGender gender = getRealGender(object);
 
         return AuthUser.builder()
+            .rawUserInfo(object)
             .uuid(object.getString("userID"))
             .username(object.getString("userName"))
             .nickname(object.getString("userName"))
@@ -103,7 +106,7 @@ public class AuthHuaweiRequest extends AuthDefaultRequest {
         form.put("refresh_token", authToken.getRefreshToken());
         form.put("grant_type", "refresh_token");
 
-        String response = HttpUtil.post(source.refresh(), form, false);
+        String response = new HttpUtils(config.getHttpConfig()).post(source.refresh(), form, false);
         return AuthResponse.builder().code(SUCCESS.getCode()).data(getAuthToken(response)).build();
     }
 
@@ -128,30 +131,9 @@ public class AuthHuaweiRequest extends AuthDefaultRequest {
      */
     @Override
     public String authorize(String state) {
-        return UrlBuilder.fromBaseUrl(source.authorize())
-            .queryParam("response_type", "code")
-            .queryParam("client_id", config.getClientId())
-            .queryParam("redirect_uri", config.getRedirectUri())
+        return UrlBuilder.fromBaseUrl(super.authorize(state))
             .queryParam("access_type", "offline")
-            .queryParam("scope", "https%3A%2F%2Fwww.huawei.com%2Fauth%2Faccount%2Fbase.profile")
-            .queryParam("state", getRealState(state))
-            .build();
-    }
-
-    /**
-     * 返回获取accessToken的url
-     *
-     * @param code 授权码
-     * @return 返回获取accessToken的url
-     */
-    @Override
-    protected String accessTokenUrl(String code) {
-        return UrlBuilder.fromBaseUrl(source.accessToken())
-            .queryParam("grant_type", "authorization_code")
-            .queryParam("code", code)
-            .queryParam("client_id", config.getClientId())
-            .queryParam("client_secret", config.getClientSecret())
-            .queryParam("redirect_uri", config.getRedirectUri())
+            .queryParam("scope", this.getScopes(" ", true, AuthScopeUtils.getDefaultScopes(AuthHuaweiScope.values())))
             .build();
     }
 

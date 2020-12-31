@@ -1,6 +1,6 @@
 package me.zhyd.oauth.request;
 
-import com.xkcoding.http.HttpUtil;
+import com.xkcoding.http.util.UrlUtil;
 import me.zhyd.oauth.cache.AuthDefaultStateCache;
 import me.zhyd.oauth.cache.AuthStateCache;
 import me.zhyd.oauth.config.AuthConfig;
@@ -12,10 +12,9 @@ import me.zhyd.oauth.model.AuthCallback;
 import me.zhyd.oauth.model.AuthResponse;
 import me.zhyd.oauth.model.AuthToken;
 import me.zhyd.oauth.model.AuthUser;
-import me.zhyd.oauth.utils.AuthChecker;
-import me.zhyd.oauth.utils.StringUtils;
-import me.zhyd.oauth.utils.UrlBuilder;
-import me.zhyd.oauth.utils.UuidUtils;
+import me.zhyd.oauth.utils.*;
+
+import java.util.List;
 
 /**
  * 默认的request处理类
@@ -74,7 +73,9 @@ public abstract class AuthDefaultRequest implements AuthRequest {
     public AuthResponse login(AuthCallback authCallback) {
         try {
             AuthChecker.checkCode(source, authCallback);
-            AuthChecker.checkState(authCallback.getState(), source, authStateCache);
+            if (!config.isIgnoreCheckState()) {
+                AuthChecker.checkState(authCallback.getState(), source, authStateCache);
+            }
 
             AuthToken authToken = this.getAccessToken(authCallback);
             AuthUser user = this.getUserInfo(authToken);
@@ -210,7 +211,7 @@ public abstract class AuthDefaultRequest implements AuthRequest {
      * @return Response
      */
     protected String doPostAuthorizationCode(String code) {
-        return HttpUtil.post(accessTokenUrl(code));
+        return new HttpUtils(config.getHttpConfig()).post(accessTokenUrl(code));
     }
 
     /**
@@ -220,7 +221,7 @@ public abstract class AuthDefaultRequest implements AuthRequest {
      * @return Response
      */
     protected String doGetAuthorizationCode(String code) {
-        return HttpUtil.get(accessTokenUrl(code));
+        return new HttpUtils(config.getHttpConfig()).get(accessTokenUrl(code));
     }
 
     /**
@@ -231,7 +232,7 @@ public abstract class AuthDefaultRequest implements AuthRequest {
      */
     @Deprecated
     protected String doPostUserInfo(AuthToken authToken) {
-        return HttpUtil.post(userInfoUrl(authToken));
+        return new HttpUtils(config.getHttpConfig()).post(userInfoUrl(authToken));
     }
 
     /**
@@ -241,7 +242,7 @@ public abstract class AuthDefaultRequest implements AuthRequest {
      * @return Response
      */
     protected String doGetUserInfo(AuthToken authToken) {
-        return HttpUtil.get(userInfoUrl(authToken));
+        return new HttpUtils(config.getHttpConfig()).get(userInfoUrl(authToken));
     }
 
     /**
@@ -252,7 +253,7 @@ public abstract class AuthDefaultRequest implements AuthRequest {
      */
     @Deprecated
     protected String doPostRevoke(AuthToken authToken) {
-        return HttpUtil.post(revokeUrl(authToken));
+        return new HttpUtils(config.getHttpConfig()).post(revokeUrl(authToken));
     }
 
     /**
@@ -262,7 +263,32 @@ public abstract class AuthDefaultRequest implements AuthRequest {
      * @return Response
      */
     protected String doGetRevoke(AuthToken authToken) {
-        return HttpUtil.get(revokeUrl(authToken));
+        return new HttpUtils(config.getHttpConfig()).get(revokeUrl(authToken));
+    }
+
+    /**
+     * 获取以 {@code separator}分割过后的 scope 信息
+     *
+     * @param separator     多个 {@code scope} 间的分隔符
+     * @param encode        是否 encode 编码
+     * @param defaultScopes 默认的 scope， 当客户端没有配置 {@code scopes} 时启用
+     * @return String
+     * @since 1.16.7
+     */
+    protected String getScopes(String separator, boolean encode, List<String> defaultScopes) {
+        List<String> scopes = config.getScopes();
+        if (null == scopes || scopes.isEmpty()) {
+            if (null == defaultScopes || defaultScopes.isEmpty()) {
+                return "";
+            }
+            scopes = defaultScopes;
+        }
+        if (null == separator) {
+            // 默认为空格
+            separator = " ";
+        }
+        String scopeStr = String.join(separator, scopes);
+        return encode ? UrlUtil.urlEncode(scopeStr) : scopeStr;
     }
 
 }

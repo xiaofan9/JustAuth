@@ -5,10 +5,12 @@ import me.zhyd.oauth.cache.AuthStateCache;
 import me.zhyd.oauth.config.AuthConfig;
 import me.zhyd.oauth.config.AuthDefaultSource;
 import me.zhyd.oauth.enums.AuthUserGender;
+import me.zhyd.oauth.enums.scope.AuthCodingScope;
 import me.zhyd.oauth.exception.AuthException;
 import me.zhyd.oauth.model.AuthCallback;
 import me.zhyd.oauth.model.AuthToken;
 import me.zhyd.oauth.model.AuthUser;
+import me.zhyd.oauth.utils.AuthScopeUtils;
 import me.zhyd.oauth.utils.UrlBuilder;
 
 /**
@@ -47,10 +49,11 @@ public class AuthCodingRequest extends AuthDefaultRequest {
 
         object = object.getJSONObject("data");
         return AuthUser.builder()
+            .rawUserInfo(object)
             .uuid(object.getString("id"))
             .username(object.getString("name"))
-            .avatar("https://coding.net/" + object.getString("avatar"))
-            .blog("https://coding.net/" + object.getString("path"))
+            .avatar("https://coding.net" + object.getString("avatar"))
+            .blog("https://coding.net" + object.getString("path"))
             .nickname(object.getString("name"))
             .company(object.getString("company"))
             .location(object.getString("location"))
@@ -82,12 +85,42 @@ public class AuthCodingRequest extends AuthDefaultRequest {
      */
     @Override
     public String authorize(String state) {
-        return UrlBuilder.fromBaseUrl(source.authorize())
+        return UrlBuilder.fromBaseUrl(String.format(source.authorize(), config.getCodingGroupName()))
             .queryParam("response_type", "code")
             .queryParam("client_id", config.getClientId())
             .queryParam("redirect_uri", config.getRedirectUri())
-            .queryParam("scope", "user")
+            .queryParam("scope", this.getScopes(" ", true, AuthScopeUtils.getDefaultScopes(AuthCodingScope.values())))
             .queryParam("state", getRealState(state))
+            .build();
+    }
+
+    /**
+     * 返回获取accessToken的url
+     *
+     * @param code 授权码
+     * @return 返回获取accessToken的url
+     */
+    @Override
+    public String accessTokenUrl(String code) {
+        return UrlBuilder.fromBaseUrl(String.format(source.accessToken(), config.getCodingGroupName()))
+            .queryParam("code", code)
+            .queryParam("client_id", config.getClientId())
+            .queryParam("client_secret", config.getClientSecret())
+            .queryParam("grant_type", "authorization_code")
+            .queryParam("redirect_uri", config.getRedirectUri())
+            .build();
+    }
+
+    /**
+     * 返回获取userInfo的url
+     *
+     * @param authToken token
+     * @return 返回获取userInfo的url
+     */
+    @Override
+    public String userInfoUrl(AuthToken authToken) {
+        return UrlBuilder.fromBaseUrl(String.format(source.userInfo(), config.getCodingGroupName()))
+            .queryParam("access_token", authToken.getAccessToken())
             .build();
     }
 }

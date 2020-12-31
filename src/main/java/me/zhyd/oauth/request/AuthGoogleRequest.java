@@ -1,16 +1,19 @@
 package me.zhyd.oauth.request;
 
 import com.alibaba.fastjson.JSONObject;
-import com.xkcoding.http.HttpUtil;
+import me.zhyd.oauth.utils.HttpUtils;
 import com.xkcoding.http.support.HttpHeader;
 import me.zhyd.oauth.cache.AuthStateCache;
 import me.zhyd.oauth.config.AuthConfig;
 import me.zhyd.oauth.config.AuthDefaultSource;
 import me.zhyd.oauth.enums.AuthUserGender;
+import me.zhyd.oauth.enums.scope.AuthGoogleScope;
 import me.zhyd.oauth.exception.AuthException;
 import me.zhyd.oauth.model.AuthCallback;
 import me.zhyd.oauth.model.AuthToken;
 import me.zhyd.oauth.model.AuthUser;
+import me.zhyd.oauth.utils.AuthScopeUtils;
+import me.zhyd.oauth.utils.HttpUtils;
 import me.zhyd.oauth.utils.UrlBuilder;
 
 /**
@@ -47,10 +50,11 @@ public class AuthGoogleRequest extends AuthDefaultRequest {
     protected AuthUser getUserInfo(AuthToken authToken) {
         HttpHeader httpHeader = new HttpHeader();
         httpHeader.add("Authorization", "Bearer " + authToken.getAccessToken());
-        String userInfo = HttpUtil.post(userInfoUrl(authToken), null, httpHeader);
+        String userInfo = new HttpUtils(config.getHttpConfig()).post(userInfoUrl(authToken), null, httpHeader);
         JSONObject object = JSONObject.parseObject(userInfo);
         this.checkResponse(object);
         return AuthUser.builder()
+            .rawUserInfo(object)
             .uuid(object.getString("sub"))
             .username(object.getString("email"))
             .avatar(object.getString("picture"))
@@ -72,12 +76,10 @@ public class AuthGoogleRequest extends AuthDefaultRequest {
      */
     @Override
     public String authorize(String state) {
-        return UrlBuilder.fromBaseUrl(source.authorize())
-            .queryParam("response_type", "code")
-            .queryParam("client_id", config.getClientId())
-            .queryParam("scope", "openid%20email%20profile")
-            .queryParam("redirect_uri", config.getRedirectUri())
-            .queryParam("state", getRealState(state))
+        return UrlBuilder.fromBaseUrl(super.authorize(state))
+            .queryParam("access_type", "offline")
+            .queryParam("scope", this.getScopes(" ", false, AuthScopeUtils.getDefaultScopes(AuthGoogleScope.values())))
+            .queryParam("prompt","select_account")
             .build();
     }
 
